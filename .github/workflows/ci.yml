@@ -40,6 +40,7 @@ jobs:
       CC: ${{matrix.cc_compiler}}
       CMAKE_CXX_STANDARD: ${{matrix.cxx_std}}
       OPENEXR_VERSION: ${{matrix.openexr_ver}}
+      CMAKE_CXX_FLAGS: "-lstdc++fs"
     steps:
       - uses: actions/checkout@v4
 
@@ -83,40 +84,46 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        title: [ubuntu, windows, macos]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
-          - os: windows-latest
+          - title: windows
+            os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
             install_deps: install_deps_windows
             toolchain_file: "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
             build_shared_libs: OFF
-          - os: ubuntu-latest
+          - title: ubuntu
+            os: ubuntu-24.04
             c_compiler: gcc
             cpp_compiler: g++
             install_deps: install_deps_linux
-          - os: ubuntu-latest
-            c_compiler: clang
+          - title: ubuntu
+            os: ubuntu-24.04
             cpp_compiler: clang++
             install_deps: install_deps_linux
-          - os: macos-latest
+          - title: macos
+            os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
             install_deps: install_deps_mac
         exclude:
-          - os: windows-latest
+          - title: windows
             c_compiler: gcc
-          - os: windows-latest
+          - title: windows
             c_compiler: clang
-          - os: ubuntu-latest
+          - title: ubuntu
             c_compiler: cl
-          - os: macos-latest
+          - title: macos
             c_compiler: cl
-          - os: macos-latest
+          - title: macos
             c_compiler: gcc
 
+    env:
+      CMAKE_CXX_FLAGS: "-lstdc++fs"
+      
     steps:
     - uses: actions/checkout@v4
 
@@ -140,7 +147,7 @@ jobs:
         cmake
         -B ${{ steps.strings.outputs.build-output-dir }}
         -S ${{ github.workspace }}
-        -DCXX_STANDARD=C++14
+        -DCXX_STANDARD=C++17
         -DCMAKE_TOOLCHAIN_FILE="${{ matrix.toolchain_file }}"
         -DENABLE_SHARED="${{ matrix.build_shared_libs }}"
         

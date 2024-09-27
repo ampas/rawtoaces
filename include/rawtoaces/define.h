@@ -266,6 +266,20 @@ static const double XYZ_acesrgb_4[4][4] = {
     {  0.0,          0.0,           0.0,          1.0 }
 };
 
+static const float XYZ_acesrgb_float_4[4][4] = {
+    {  1.0498110175, 0.0000000000, -0.0000974845, 0.0 },
+    { -0.4959030231, 1.3733130458,  0.0982400361, 0.0 },
+    {  0.0000000000, 0.0000000000,  0.9912520182, 0.0 },
+    {  0.0,          0.0,           0.0,          1.0 }
+};
+
+static const float XYZ_acesrgb_transposed_4[4][4] = {
+    {  1.0498110175, -0.4959030231, 0.0000000000, 0.0 },
+    {  0.0000000000,  1.3733130458, 0.0000000000, 0.0 },
+    { -0.0000974845,  0.0982400361, 0.9912520182, 0.0 },
+    {  0.0000000000,  0.0000000000, 0.0000000000, 1.0 }
+};
+
 static const double acesrgb_XYZ_3[3][3] = {
     { 0.952552395938186, 0.0,                9.36786316604686e-05 },
     { 0.343966449765075, 0.728166096613485, -0.0721325463785608   },
@@ -390,8 +404,8 @@ inline bool isCTLetterDigit( const char c )
 // to represent color temperature(s) (e.g., D60, 3200K)
 inline bool isValidCT( string str )
 {
-    int i      = 0;
-    int length = str.length();
+    int    i      = 0;
+    size_t length = str.length();
 
     if ( length == 0 )
         return false;

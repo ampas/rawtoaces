@@ -60,6 +60,9 @@
 #include <stdint.h>
 #include <libraw/libraw.h>
 
+#include "mathOps.h"
+#include "metadata.h"
+
 using namespace std;
 
 namespace rta
@@ -226,7 +229,7 @@ class DNGIdt
 {
 public:
     DNGIdt();
-    DNGIdt( libraw_rawdata_t R );
+    DNGIdt( const Metadata &metadata );
     virtual ~DNGIdt();
 
     double ccttoMired( const double cct ) const;
@@ -247,16 +250,10 @@ public:
     void                   getCameraXYZMtxAndWhitePoint();
 
 private:
-    vector<double> _cameraCalibration1DNG;
-    vector<double> _cameraCalibration2DNG;
     vector<double> _cameraToXYZMtx;
-    vector<double> _xyz2rgbMatrix1DNG;
-    vector<double> _xyz2rgbMatrix2DNG;
-    vector<double> _analogBalanceDNG;
-    vector<double> _neutralRGBDNG;
     vector<double> _cameraXYZWhitePoint;
-    vector<double> _calibrateIllum;
-    double         _baseExpo;
+
+    Metadata _metadata;
 };
 
 struct Objfun

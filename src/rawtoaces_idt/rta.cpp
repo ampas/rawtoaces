@@ -592,7 +592,7 @@ int Spst::getWLIncrement()
 
 int Spst::loadSpst( const string &path, const char *maker, const char *model )
 {
-    assert( path.length() > 0 && maker != nullptr && model != nullptr );
+    assert( path.length() > 0 );
 
     vector<RGBSen> rgbsen;
     vector<double> max( 3, dmin );
@@ -603,12 +603,12 @@ int Spst::loadSpst( const string &path, const char *maker, const char *model )
         read_json( path, pt );
 
         string cmaker = pt.get<string>( "header.manufacturer" );
-        if ( cmp_str( maker, cmaker.c_str() ) )
+        if ( maker != nullptr && cmp_str( maker, cmaker.c_str() ) )
             return 0;
         setBrand( cmaker.c_str() );
 
         string cmodel = pt.get<string>( "header.model" );
-        if ( cmp_str( model, cmodel.c_str() ) )
+        if ( model != nullptr && cmp_str( model, cmodel.c_str() ) )
             return 0;
         setModel( cmodel.c_str() );
 
@@ -1543,67 +1543,21 @@ const vector<double> Idt::getWB() const
 
 DNGIdt::DNGIdt()
 {
-    _cameraCalibration1DNG = vector<double>( 9, 1.0 );
-    _cameraCalibration2DNG = vector<double>( 9, 1.0 );
-    _cameraToXYZMtx        = vector<double>( 9, 1.0 );
-    _xyz2rgbMatrix1DNG     = vector<double>( 9, 1.0 );
-    _xyz2rgbMatrix2DNG     = vector<double>( 9, 1.0 );
-    _analogBalanceDNG      = vector<double>( 3, 1.0 );
-    _neutralRGBDNG         = vector<double>( 3, 1.0 );
-    _cameraXYZWhitePoint   = vector<double>( 3, 1.0 );
-    _calibrateIllum        = vector<double>( 2, 1.0 );
-    _baseExpo              = 1.0;
+    _cameraToXYZMtx      = vector<double>( 9, 1.0 );
+    _cameraXYZWhitePoint = vector<double>( 3, 1.0 );
 }
 
-DNGIdt::DNGIdt( libraw_rawdata_t R )
+DNGIdt::DNGIdt( const Metadata &metadata ) //  libraw_rawdata_t R )
 {
-    _cameraCalibration1DNG = vector<double>( 9, 1.0 );
-    _cameraCalibration2DNG = vector<double>( 9, 1.0 );
-    _cameraToXYZMtx        = vector<double>( 9, 1.0 );
-    _xyz2rgbMatrix1DNG     = vector<double>( 9, 1.0 );
-    _xyz2rgbMatrix2DNG     = vector<double>( 9, 1.0 );
-    _analogBalanceDNG      = vector<double>( 3, 1.0 );
-    _neutralRGBDNG         = vector<double>( 3, 1.0 );
-    _cameraXYZWhitePoint   = vector<double>( 3, 1.0 );
-    _calibrateIllum        = vector<double>( 2, 1.0 );
-
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION( 0, 20, 0 )
-    _baseExpo = static_cast<double>( R.color.dng_levels.baseline_exposure );
-#else
-    _baseExpo = static_cast<double>( R.color.baseline_exposure );
-#endif
-    _calibrateIllum[0] = static_cast<double>( R.color.dng_color[0].illuminant );
-    _calibrateIllum[1] = static_cast<double>( R.color.dng_color[1].illuminant );
-
-    FORI( 3 )
-    {
-        _neutralRGBDNG[i] = 1.0 / static_cast<double>( R.color.cam_mul[i] );
-    }
-
-    FORIJ( 3, 3 )
-    {
-        _xyz2rgbMatrix1DNG[i * 3 + j] =
-            static_cast<double>( ( R.color.dng_color[0].colormatrix )[i][j] );
-        _xyz2rgbMatrix2DNG[i * 3 + j] =
-            static_cast<double>( ( R.color.dng_color[1].colormatrix )[i][j] );
-        _cameraCalibration1DNG[i * 3 + j] =
-            static_cast<double>( ( R.color.dng_color[0].calibration )[i][j] );
-        _cameraCalibration2DNG[i * 3 + j] =
-            static_cast<double>( ( R.color.dng_color[1].calibration )[i][j] );
-    }
+    _metadata = metadata;
 }
 
 DNGIdt::~DNGIdt()
 {
-    clearVM( _cameraCalibration1DNG );
-    clearVM( _cameraCalibration2DNG );
+    _metadata = Metadata();
+
     clearVM( _cameraToXYZMtx );
-    clearVM( _xyz2rgbMatrix1DNG );
-    clearVM( _xyz2rgbMatrix2DNG );
-    clearVM( _analogBalanceDNG );
-    clearVM( _neutralRGBDNG );
     clearVM( _cameraXYZWhitePoint );
-    clearVM( _calibrateIllum );
 }
 
 double DNGIdt::ccttoMired( const double cct ) const
@@ -1689,9 +1643,9 @@ vector<double> DNGIdt::XYZtoCameraWeightedMatrix(
     double weight =
         std::max( 0.0, std::min( 1.0, ( mir1 - mir0 ) / ( mir1 - mir2 ) ) );
     vector<double> result =
-        subVectors( _xyz2rgbMatrix2DNG, _xyz2rgbMatrix1DNG );
+        subVectors( _metadata.xyz2rgbMatrix2, _metadata.xyz2rgbMatrix1 );
     scaleVector( result, weight );
-    result = addVectors( result, _xyz2rgbMatrix1DNG );
+    result = addVectors( result, _metadata.xyz2rgbMatrix1 );
 
     return result;
 }
@@ -1699,23 +1653,24 @@ vector<double> DNGIdt::XYZtoCameraWeightedMatrix(
 vector<double>
 DNGIdt::findXYZtoCameraMtx( const vector<double> &neutralRGB ) const
 {
+    assert( _metadata.xyz2rgbMatrix2.size() > 0 );
 
-    if ( _calibrateIllum.size() == 0 )
+    if ( _metadata.xyz2rgbMatrix2.size() == 0 )
     {
-        fprintf( stderr, " No calibration illuminants were found. \n " );
-        return _xyz2rgbMatrix1DNG;
+        fprintf( stderr, " Only one calibration matrix found. \n " );
+        return _metadata.xyz2rgbMatrix1;
     }
 
     if ( neutralRGB.size() == 0 )
     {
         fprintf( stderr, " no neutral RGB values were found. \n " );
-        return _xyz2rgbMatrix1DNG;
+        return _metadata.xyz2rgbMatrix1;
     }
 
     double cct1 = lightSourceToColorTemp(
-        static_cast<const unsigned short>( _calibrateIllum[0] ) );
+        static_cast<const unsigned short>( _metadata.calibrationIlluminant1 ) );
     double cct2 = lightSourceToColorTemp(
-        static_cast<const unsigned short>( _calibrateIllum[1] ) );
+        static_cast<const unsigned short>( _metadata.calibrationIlluminant2 ) );
 
     double mir1 = ccttoMired( cct1 );
     double mir2 = ccttoMired( cct2 );
@@ -1737,7 +1692,7 @@ DNGIdt::findXYZtoCameraMtx( const vector<double> &neutralRGB ) const
         lerror =
             mir - ccttoMired( XYZToColorTemperature( mulVector(
                       invertV( XYZtoCameraWeightedMatrix( mir, mir1, mir2 ) ),
-                      _neutralRGBDNG ) ) );
+                      _metadata.neutralRGB ) ) );
 
         if ( std::fabs( lerror - 0.0 ) <= 1e-09 )
         {
@@ -1837,19 +1792,20 @@ vector<double> DNGIdt::matrixRGBtoXYZ( const double chromaticities[][2] ) const
 
 void DNGIdt::getCameraXYZMtxAndWhitePoint()
 {
-    _cameraToXYZMtx = invertV( findXYZtoCameraMtx( _neutralRGBDNG ) );
+    _cameraToXYZMtx = invertV( findXYZtoCameraMtx( _metadata.neutralRGB ) );
     assert( std::fabs( sumVector( _cameraToXYZMtx ) - 0.0 ) > 1e-09 );
 
-    scaleVector( _cameraToXYZMtx, std::pow( 2.0, _baseExpo ) );
+    scaleVector( _cameraToXYZMtx, std::pow( 2.0, _metadata.baselineExposure ) );
 
-    if ( _neutralRGBDNG.size() > 0 )
+    if ( _metadata.neutralRGB.size() > 0 )
     {
-        _cameraXYZWhitePoint = mulVector( _cameraToXYZMtx, _neutralRGBDNG );
+        _cameraXYZWhitePoint =
+            mulVector( _cameraToXYZMtx, _metadata.neutralRGB );
     }
     else
     {
         _cameraXYZWhitePoint = colorTemperatureToXYZ(
-            lightSourceToColorTemp( _calibrateIllum[0] ) );
+            lightSourceToColorTemp( _metadata.calibrationIlluminant1 ) );
     }
 
     scaleVector( _cameraXYZWhitePoint, 1.0 / _cameraXYZWhitePoint[1] );

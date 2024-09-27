@@ -2,4 +2,4 @@
 
 set -ex
 
-brew install ceres-solver imath openexr libraw boost
+brew install ceres-solver imath openexr libraw boost openimageio

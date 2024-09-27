@@ -1736,9 +1736,52 @@ float *AcesRender::renderDNG()
 
 #define P _rawProcessor->imgdata.idata
 
+#ifdef R
+#    undef R
+#endif
+
+#define R _rawProcessor->imgdata.rawdata
+
     assert( _image && P.dng_version );
 
-    DNGIdt *dng = new DNGIdt( _rawProcessor->imgdata.rawdata );
+    Metadata metadata;
+    metadata.neutralRGB.resize( 3 );
+    metadata.xyz2rgbMatrix1.resize( 9 );
+    metadata.xyz2rgbMatrix2.resize( 9 );
+    metadata.cameraCalibration1.resize( 9 );
+    metadata.cameraCalibration2.resize( 9 );
+
+#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION( 0, 20, 0 )
+    metadata.baselineExposure =
+        static_cast<double>( R.color.dng_levels.baseline_exposure );
+#else
+    metadata.baselineExposure =
+        static_cast<double>( R.color.baseline_exposure );
+#endif
+    metadata.calibrationIlluminant1 =
+        static_cast<double>( R.color.dng_color[0].illuminant );
+    metadata.calibrationIlluminant2 =
+        static_cast<double>( R.color.dng_color[1].illuminant );
+
+    FORI( 3 )
+    {
+        metadata.neutralRGB[i] =
+            1.0 / static_cast<double>( R.color.cam_mul[i] );
+    }
+
+    FORIJ( 3, 3 )
+    {
+        metadata.xyz2rgbMatrix1[i * 3 + j] =
+            static_cast<double>( ( R.color.dng_color[0].colormatrix )[i][j] );
+        metadata.xyz2rgbMatrix2[i * 3 + j] =
+            static_cast<double>( ( R.color.dng_color[1].colormatrix )[i][j] );
+        metadata.cameraCalibration1[i * 3 + j] =
+            static_cast<double>( ( R.color.dng_color[0].calibration )[i][j] );
+        metadata.cameraCalibration2[i * 3 + j] =
+            static_cast<double>( ( R.color.dng_color[1].calibration )[i][j] );
+    }
+
+    DNGIdt *dng = new DNGIdt( metadata );
     _catm       = dng->getDNGCATMatrix();
     _idtm       = dng->getDNGIDTMatrix();
 

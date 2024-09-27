@@ -3,6 +3,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_INSTALL_PREFIX}/share/CMake")
 
 
+find_package ( OpenImageIO   CONFIG REQUIRED )
 find_package ( AcesContainer CONFIG REQUIRED )
 find_package ( Eigen3        CONFIG REQUIRED )
 find_package ( Imath         CONFIG REQUIRED )
